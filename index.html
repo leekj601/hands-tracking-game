@@ -155,7 +155,8 @@
         function handleCorrectGesture() {
             score += 10;
             document.getElementById("score").innerText = score;
-            
+            clearTimeout(healthInterval);
+            healthInterval = null;
             changeTargetGesture();
         }
 
