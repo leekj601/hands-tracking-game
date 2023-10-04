@@ -40,6 +40,12 @@
             font-weight: bold;
             margin-top: 20px;
         }
+
+        #health-container {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -50,18 +56,22 @@
     <div id="label-container"></div>
     <div id="target-gesture"></div>
     <div id="score-container">Score: <span id="score">0</span></div>
+    <div id="health-container">Health: <span id="health">100</span></div>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
     <script type="text/javascript">
         const URL = "https://teachablemachine.withgoogle.com/models/LeLgkH6wF/"; // 모델 URL을 입력하세요
-        let model, webcam, ctx, labelContainer, maxPredictions, score, isGameRunning, targetGesture;
-
+        let model, webcam, ctx, labelContainer, maxPredictions, score, isGameRunning, targetGesture, health;
+        let healthInterval = null;
+        
         async function init() {
             if (isGameRunning) return;
             isGameRunning = true;
             
             score = 0;
             document.getElementById("score").innerText = score;
+            health = 100;
+            updateHealth();
 
             const modelURL = URL + "model.json";
             const metadataURL = URL + "metadata.json";
@@ -91,7 +101,7 @@
         async function loop(timestamp) {
             webcam.update();
             await predict();
-            drawWebcam(); // 웹캠 영상 그리기
+            drawWebcam();
             window.requestAnimationFrame(loop);
         }
 
@@ -104,13 +114,26 @@
                 labelContainer.childNodes[i].innerHTML = classPrediction;
             }
             
-            // 사용자가 올바른 동작을 수행했을 때
             if (prediction.some(pred => pred.className === targetGesture && pred.probability > 0.9)) {
                 handleCorrectGesture();
+            } else {
+                if (!healthInterval) {
+                    healthInterval = setTimeout(() => {
+                        health -= 10;
+                        updateHealth();
+
+                        if (health <= 0) {
+                            endGame();
+                        } else {
+                            changeTargetGesture();
+                        }
+
+                        healthInterval = null;
+                    }, 5000);
+                }
             }
         }
 
-        // 웹캠 영상 그리기
         function drawWebcam() {
             const webcamCanvas = document.getElementById("webcam-canvas");
             const webcamCtx = webcamCanvas.getContext("2d");
@@ -129,7 +152,6 @@
             document.getElementById("target-gesture").innerText = targetGesture + " hands up";
         }
 
-
         function handleCorrectGesture() {
             score += 10;
             document.getElementById("score").innerText = score;
@@ -137,6 +159,16 @@
             changeTargetGesture();
         }
 
+        function updateHealth() {
+            document.getElementById("health").innerText = health;
+        }
+
+        function endGame() {
+            isGameRunning = false;
+            alert("게임 종료! 최종 점수: " + score + ", 남은 체력: " + health);
+            health = 100;
+            updateHealth();
+        }
     </script>
 </body>
 </html>
