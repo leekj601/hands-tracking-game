@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>왼손 들어 오른손 들어 게임</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .button-container {
+            margin-top: 10px;
+        }
+
+        #webcam-canvas {
+            border: 1px solid #ccc;
+        }
+
+        #label-container {
+            margin-top: 10px;
+        }
+
+        #target-gesture {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+
+        #score-container {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div>Teachable Machine Pose Model</div>
+    <button type="button" onclick="init()">Start</button>
+    <div><canvas id="webcam-canvas" width="200" height="200"></canvas></div>
+    <div><canvas id="canvas" width="200" height="200"></canvas></div>
+    <div id="label-container"></div>
+    <div id="target-gesture"></div>
+    <div id="score-container">Score: <span id="score">0</span></div>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/pose@0.8/dist/teachablemachine-pose.min.js"></script>
+    <script type="text/javascript">
+        const URL = "https://teachablemachine.withgoogle.com/models/LeLgkH6wF/"; // 모델 URL을 입력하세요
+        let model, webcam, ctx, labelContainer, maxPredictions, score, isGameRunning, targetGesture;
+
+        async function init() {
+            if (isGameRunning) return;
+            isGameRunning = true;
+            
+            score = 0;
+            document.getElementById("score").innerText = score;
+
+            const modelURL = URL + "model.json";
+            const metadataURL = URL + "metadata.json";
+
+            model = await tmPose.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            const size = 200;
+            const flip = true;
+            webcam = new tmPose.Webcam(size, size, flip);
+            await webcam.setup();
+            await webcam.play();
+            window.requestAnimationFrame(loop);
+
+            const canvas = document.getElementById("canvas");
+            canvas.width = size;
+            canvas.height = size;
+            ctx = canvas.getContext("2d");
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+            
+            changeTargetGesture();
+        }
+
+        async function loop(timestamp) {
+            webcam.update();
+            await predict();
+            drawWebcam(); // 웹캠 영상 그리기
+            window.requestAnimationFrame(loop);
+        }
+
+        async function predict() {
+            const { pose, posenetOutput } = await model.estimatePose(webcam.canvas);
+            const prediction = await model.predict(posenetOutput);
+
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+            }
+            
+            // 사용자가 올바른 동작을 수행했을 때
+            if (prediction.some(pred => pred.className === targetGesture && pred.probability > 0.9)) {
+                handleCorrectGesture();
+            }
+        }
+
+        // 웹캠 영상 그리기
+        function drawWebcam() {
+            const webcamCanvas = document.getElementById("webcam-canvas");
+            const webcamCtx = webcamCanvas.getContext("2d");
+            webcamCtx.drawImage(webcam.canvas, 0, 0, webcamCanvas.width, webcamCanvas.height);
+        }
+
+        function changeTargetGesture() {
+            const randomValue = Math.random();
+            if (randomValue < 0.33) {
+                targetGesture = "left";
+            } else if (randomValue < 0.67) {
+                targetGesture = "right";
+            } else {
+                targetGesture = "twohand";
+            }
+            document.getElementById("target-gesture").innerText = targetGesture + " hands up";
+        }
+
+
+        function handleCorrectGesture() {
+            score += 10;
+            document.getElementById("score").innerText = score;
+            
+            changeTargetGesture();
+        }
+
+    </script>
+</body>
+</html>
